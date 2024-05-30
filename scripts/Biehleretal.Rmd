@@ -1,0 +1,189 @@
+---
+title: "Biehler et al"
+author: "Tricia"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# load libraries
+```{r message=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+# Import CSV
+```{r}
+data <- read.csv("../datafiles/BiehlerDataBKA.csv", header = TRUE, sep = ",")
+
+# Convert 'Sex' and 'Species' to factors
+data$Sex <- factor(data$Sex)
+data$Species <- factor(data$Species)
+```
+
+# Mean and Standard Devation for BKA
+```{r}
+# Calculate mean and SD for each species
+summary_stats <- data %>%
+  group_by(Species) %>%
+  summarise(
+    Mean = mean(Bacterial_Killing_Percentage, na.rm = TRUE),
+    SD = sd(Bacterial_Killing_Percentage, na.rm = TRUE)     
+  )
+
+# Print the summary statistics
+print(summary_stats)
+```
+
+# normality for BKA
+```{r}
+# histogram
+hist(data$Bacterial_Killing_Percentage, main="Histogram of Data", xlab="Data Values", 
+     breaks=30, col="blue")
+
+# qqplot
+qqnorm(data$Bacterial_Killing_Percentage)
+qqline(data$Bacterial_Killing_Percentage, col = "red")
+
+# shapiro-wilk
+shapiro.test(data$Bacterial_Killing_Percentage)
+```
+
+# Kruksal-Wallis of BKA
+```{r}
+kruskal.test(data$Bacterial_Killing_Percentage, data$Species)
+```
+
+# Pairwise comparison with Bonferroni correction
+```{r}
+bka_pairwise_results <- pairwise.wilcox.test(data$Bacterial_Killing_Percentage,
+          data$Species, p.adjust.method = "bonferroni")
+print(bka_pairwise_results)
+```
+
+# Boxplot of BKA
+```{r warning=FALSE}
+# Reorder the species factor levels
+data$Species <- factor(data$Species, levels = c("AMGO", "LEGO", "PISI", "HOFI"))
+
+# Create box plot with individual points
+BKAAssay <- ggplot(data, aes(x=Species, y=Bacterial_Killing_Percentage)) +
+  geom_boxplot(color="black", alpha=0.7) +  # Box plot
+  geom_jitter(width=0.2, size=1.5, alpha=0.5) +  # Jittered points
+  labs(title="Bacterial Killing Assay",
+       x="Species",
+        y=expression("% " * italic(Salmonella) * " Killed")) +
+  scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 20))  +
+  theme_minimal() +
+  theme( plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    axis.title.x = element_text(face = "bold", size = 10),
+    axis.title.y = element_text(face = "bold", size = 10)
+  )  +
+  # Add line for significance between AMGO and HOFI
+  geom_segment(aes(x=1, xend=4, y=94, yend=94), color="black", linewidth=.5) +
+  # Add text for significance label "***"
+  geom_text(aes(x=2.5, y=95, label="***"), color="black", size=5, fontface="bold") +
+  # Add line for significance between LEGO and HOFI
+  geom_segment(aes(x=2, xend=4, y=88, yend=88), color="black", linewidth=.5) +
+  # Add text for significance label "***"
+  geom_text(aes(x=3, y=89, label="***"), color="black", size=5, fontface="bold") +
+  # Add line for significance between PISI and HOFI
+  geom_segment(aes(x=3, xend=4, y=82, yend=82), color="black", linewidth=.5) +
+  # Add text for significance label "***"
+  geom_text(aes(x=3.5, y=83, label="***"), color="black", size=5, fontface="bold") +
+  # Add line for significance between PISI and AMGO
+  geom_segment(aes(x=1, xend=3, y=60, yend=60), color="black", linewidth=.5) +
+  # Add text for significance label "***"
+  geom_text(aes(x=2, y=61, label="***"), color="black", size=5, fontface="bold") +
+  # Add line for significance between PISI and LEGO
+  geom_segment(aes(x=2, xend=3, y=54, yend=54), color="black", linewidth=.5) +
+  # Add text for significance label "***"
+  geom_text(aes(x=2.5, y=55, label="**"), color="black", size=5, fontface="bold") +
+  # Add line for significance between AMGO and LEGO
+  geom_segment(aes(x=1, xend=2, y=48, yend=48), color="black", linewidth=.5) +
+  # Add text for significance label "***"
+  geom_text(aes(x=1.5, y=50, label="ns"), color="black", size=3, fontface="bold")
+
+print(BKAAssay)
+```
+# export tiff with 300dpi
+```{r warning=FALSE}
+ggsave(
+filename="../figures/BKAAssay.tiff",
+plot = BKAAssay,
+width = 200,
+height = 200,
+units = c("mm"),
+dpi = 300,
+bg = "white"
+)
+```
+
+# Test effect of sex
+```{r}
+clean_data <- data[!is.na(data$Species) & !is.na(data$Sex), ]
+wilcox.test(data$Bacterial_Killing_Percentage ~ data$Sex)
+```
+
+# Kruskal-Wallis test for interaction
+```{r}
+kw_test <- kruskal.test(Bacterial_Killing_Percentage ~ interaction(Species, Sex), data = data)
+print(kw_test)
+```
+
+# Pairwise Results
+```{r}
+pairwise_results <- pairwise.wilcox.test(data$Bacterial_Killing_Percentage,
+                interaction(data$Species, data$Sex),
+                p.adjust.method = "bonferroni")
+  print(pairwise_results)
+```
+
+# Import Growth Curve Data
+```{r}
+growthcurvedata <- read.csv("../datafiles/GrowthCurve.csv", header = TRUE, sep = ",")
+```
+
+# Growth Curve
+```{r warning=FALSE}
+# Calculate mean absorbance for each time point
+average_data <- growthcurvedata %>%
+  group_by(Time.h.) %>%
+  summarise(
+    Mean = mean(A600),
+    SD = sd(A600),
+    Min = min(A600),
+    Max = max(A600)
+  )
+
+# Plot with smoothed line and shaded area representing the standard deviation
+growthcurve <- ggplot() +
+  geom_ribbon(data = average_data, aes(x = Time.h., y = Mean, ymin = Min, ymax = Max), 
+              fill = "grey80", alpha = 0.5) +
+  geom_smooth(data = average_data, aes(x = Time.h., y = Mean), method = "loess", 
+              formula = y ~ x, color = "black", se = FALSE, 
+              size = 0.5) +
+  geom_point(data = growthcurvedata, aes(x = Time.h., y = A600), color = "black", size = 0.5) + 
+  labs(title = "Bacterial Growth Curve", x = "Time of Incubation (h)", 
+       y = "Absorbance (600nm)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
+    axis.title.x = element_text(face = "bold", size = 10),
+    axis.title.y = element_text(face = "bold", size = 10)
+  )
+
+print(growthcurve)
+```
+
+# export tiff with 300dpi
+```{r warning=FALSE}
+ggsave(
+filename="../figures/growthcurve.tiff",
+plot = growthcurve,
+width = 200,
+height = 100,
+units = c("mm"),
+dpi = 300,
+bg = "white"
+)
+```
