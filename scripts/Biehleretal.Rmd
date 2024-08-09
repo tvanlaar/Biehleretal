@@ -69,14 +69,15 @@ data$Species <- factor(data$Species, levels = c("AMGO", "LEGO", "PISI", "HOFI"))
 BKAAssay <- ggplot(data, aes(x=Species, y=Bacterial_Killing_Percentage)) +
   geom_boxplot(color="black", alpha=0.7) +  # Box plot
   geom_jitter(width=0.2, size=1.5, alpha=0.5) +  # Jittered points
-  labs(title="Bacterial Killing Assay",
-       x="Species",
+  labs(x="Species",
         y=expression("% " * italic(Salmonella) * " Killed")) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 20))  +
   theme_minimal() +
-  theme( plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
-    axis.title.x = element_text(face = "bold", size = 10),
-    axis.title.y = element_text(face = "bold", size = 10)
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 15),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15),
+    axis.text.x = element_text(size = 12),  # Bold x-axis labels
+    axis.text.y = element_text(size = 12)  # Bold y-axis numbers
   )  +
   # Add line for significance between AMGO and HOFI
   geom_segment(aes(x=1, xend=4, y=94, yend=94), color="black", linewidth=.5) +
@@ -138,6 +139,49 @@ pairwise_results <- pairwise.wilcox.test(data$Bacterial_Killing_Percentage,
   print(pairwise_results)
 ```
 
+# Pairwise Results with Test Statistic
+```{r}
+# Load necessary library
+library(dplyr)
+
+# Define the pairwise combinations of Species
+pairs <- combn(levels(data$Species), 2, simplify = FALSE)
+
+# Initialize lists to store results
+test_stats <- list()
+p_values <- list()
+
+# Loop through each pair and perform the Wilcoxon rank-sum test
+for (pair in pairs) {
+  species1 <- pair[1]
+  species2 <- pair[2]
+  subset_data <- data %>% filter(Species %in% c(species1, species2))
+  
+  test_result <- wilcox.test(Bacterial_Killing_Percentage ~ Species, data = subset_data)
+  
+  test_stats[[paste(species1, species2, sep = " vs ")]] <- test_result$statistic
+  p_values[[paste(species1, species2, sep = " vs ")]] <- test_result$p.value
+}
+
+# Convert lists to data frames
+test_stats_df <- as.data.frame(do.call(rbind, test_stats), stringsAsFactors = FALSE)
+p_values_df <- as.data.frame(do.call(rbind, p_values), stringsAsFactors = FALSE)
+
+# Apply Bonferroni correction
+adjusted_p_values <- p.adjust(unlist(p_values_df), method = "bonferroni")
+
+# Combine results into a single data frame
+results_df <- data.frame(
+  Comparison = rownames(test_stats_df),
+  Test_Statistic = unlist(test_stats_df),
+  P_Value = unlist(p_values_df),
+  Adjusted_P_Value = adjusted_p_values
+)
+
+# Print the results
+print(results_df)
+```
+
 # Import Growth Curve Data
 ```{r}
 growthcurvedata <- read.csv("../datafiles/GrowthCurve.csv", header = TRUE, sep = ",")
@@ -163,8 +207,8 @@ growthcurve <- ggplot() +
               formula = y ~ x, color = "black", se = FALSE, 
               size = 0.5) +
   geom_point(data = growthcurvedata, aes(x = Time.h., y = A600), color = "black", size = 0.5) + 
-  labs(title = "Bacterial Growth Curve", x = "Time of Incubation (h)", 
-       y = "Absorbance (600nm)") +
+  labs(x = "Time of Incubation (h)", 
+       y = "Absorbance (600 nm)") +
   theme_minimal() +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", size = 10),
