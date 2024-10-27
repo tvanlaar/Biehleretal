@@ -1,0 +1,6 @@
+sequencingfiles/
+.Rproj.user
+*.fas
+sequencingdata/
+*.fasta
+*.xlsx

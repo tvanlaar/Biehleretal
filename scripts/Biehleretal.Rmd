@@ -9,15 +9,19 @@ output: pdf_document
 ```{r message=FALSE}
 library(ggplot2)
 library(dplyr)
+library(betareg)
+library(emmeans)
 ```
 
 # Import CSV
 ```{r}
 data <- read.csv("../datafiles/BiehlerDataBKA.csv", header = TRUE, sep = ",")
 
-# Convert 'Sex' and 'Species' to factors
+# Convert 'Sex', 'Month', 'Year', and 'Species' to factors
 data$Sex <- factor(data$Sex)
 data$Species <- factor(data$Species)
+data$Year <- factor(data$Year)
+data$Month <- factor(data$Month)
 ```
 
 # Mean and Standard Devation for BKA
@@ -34,30 +38,84 @@ summary_stats <- data %>%
 print(summary_stats)
 ```
 
-# normality for BKA
+# Transformation of data
 ```{r}
-# histogram
-hist(data$Bacterial_Killing_Percentage, main="Histogram of Data", xlab="Data Values", 
-     breaks=30, col="blue")
+# Convert percentage to proportion
+data$Bacterial_Killing_Proportion <- data$Bacterial_Killing_Percentage / 100
 
-# qqplot
-qqnorm(data$Bacterial_Killing_Percentage)
-qqline(data$Bacterial_Killing_Percentage, col = "red")
+# Apply arcsine square root transformation
+data$Bacterial_Killing_Arcsine <- asin(sqrt(data$Bacterial_Killing_Proportion))
 
-# shapiro-wilk
-shapiro.test(data$Bacterial_Killing_Percentage)
+# Shapiro-Wilk test for normality
+shapiro.test(data$Bacterial_Killing_Arcsine)
+
+# Visual inspection with histogram and Q-Q plot
+hist(data$Bacterial_Killing_Arcsine, main="Histogram of Arcsine Transformed Data", xlab="Arcsine Transformed Values")
+qqnorm(data$Bacterial_Killing_Arcsine)
+qqline(data$Bacterial_Killing_Arcsine, col="blue")
 ```
 
-# Kruksal-Wallis of BKA
+Beta regression as data are not normally distributed after arcsin transformation
 ```{r}
-kruskal.test(data$Bacterial_Killing_Percentage, data$Species)
+# Fit a beta regression model for the proportion data
+beta_bka_species <- betareg(Bacterial_Killing_Proportion ~ Species, data = data)
+
+# View the summary of the model
+summary(beta_bka_species)
+```
+# Post Hoc Comparison
+```{r}
+# Obtain estimated marginal means for Species from the beta regression model
+emmeans_species <- emmeans(beta_bka_species, ~ Species)
+
+# Perform pairwise comparisons between all species
+pairwise_comparisons <- pairs(emmeans_species, adjust = "fdr") 
+
+# Print pairwise comparisons with more significant digits
+print(pairwise_comparisons)
+
+# Convert pairwise comparisons to a data frame
+pairwise_results_df <- as.data.frame(pairwise_comparisons)
+
+# View the results
+pairwise_results_df
 ```
 
-# Pairwise comparison with Bonferroni correction
+# Model Testing
 ```{r}
-bka_pairwise_results <- pairwise.wilcox.test(data$Bacterial_Killing_Percentage,
-          data$Species, p.adjust.method = "bonferroni")
-print(bka_pairwise_results)
+# Fit a model with main effects only
+main_effects_model <- betareg(Bacterial_Killing_Proportion ~ Species + Sex + Year + Season, data = data)
+model_A <- betareg(Bacterial_Killing_Proportion ~ Species + Season, data = data)
+model_B <- betareg(Bacterial_Killing_Proportion ~ Species + Year, data = data)
+model_C <- betareg(Bacterial_Killing_Proportion ~ Species + Sex * Season + Year, data = data)
+model_D <- betareg(Bacterial_Killing_Proportion ~ Species + Season + Year, data = data)
+model_E <- betareg(Bacterial_Killing_Proportion ~ Species, data = data)
+model_F <- betareg(Bacterial_Killing_Proportion ~ Species * Sex + Year, data = data)
+model_G <- betareg(Bacterial_Killing_Proportion ~ Species * Sex + Season, data = data)
+model_H <- betareg(Bacterial_Killing_Proportion ~ Species + Sex * Season, data = data)
+model_I <- betareg(Bacterial_Killing_Proportion ~ Species + Sex * Year, data = data)
+model_J <- betareg(Bacterial_Killing_Proportion ~ Sex, data = data)
+model_K <- betareg(Bacterial_Killing_Proportion ~ Year, data = data)
+model_L <- betareg(Bacterial_Killing_Proportion ~ Season, data = data)
+# Example for comparing models using AIC
+AIC(main_effects_model, model_A, model_B, model_C, model_D, model_E, model_F, model_G, model_H, model_I, model_J, model_K, model_L)
+```
+
+# Summarize AIC models
+```{r}
+summary(main_effects_model)
+summary(model_A)
+summary(model_B)
+summary(model_C)
+summary(model_D)
+summary(model_E)
+summary(model_F)
+summary(model_G)
+summary(model_H)
+summary(model_I)
+summary(model_J)
+summary(model_K)
+summary(model_L)
 ```
 
 # Boxplot of BKA
@@ -98,11 +156,11 @@ BKAAssay <- ggplot(data, aes(x=Species, y=Bacterial_Killing_Percentage)) +
   # Add line for significance between PISI and LEGO
   geom_segment(aes(x=2, xend=3, y=54, yend=54), color="black", linewidth=.5) +
   # Add text for significance label "***"
-  geom_text(aes(x=2.5, y=55, label="**"), color="black", size=5, fontface="bold") +
+  geom_text(aes(x=2.5, y=55, label="***"), color="black", size=5, fontface="bold") +
   # Add line for significance between AMGO and LEGO
   geom_segment(aes(x=1, xend=2, y=48, yend=48), color="black", linewidth=.5) +
   # Add text for significance label "***"
-  geom_text(aes(x=1.5, y=50, label="ns"), color="black", size=3, fontface="bold")
+  geom_text(aes(x=1.5, y=50, label="P = 0.37"), color="black", size=3, fontface="bold")
 
 print(BKAAssay)
 ```
@@ -117,69 +175,6 @@ units = c("mm"),
 dpi = 300,
 bg = "white"
 )
-```
-
-# Test effect of sex
-```{r}
-clean_data <- data[!is.na(data$Species) & !is.na(data$Sex), ]
-wilcox.test(data$Bacterial_Killing_Percentage ~ data$Sex)
-```
-
-# Kruskal-Wallis test for interaction
-```{r}
-kw_test <- kruskal.test(Bacterial_Killing_Percentage ~ interaction(Species, Sex), data = data)
-print(kw_test)
-```
-
-# Pairwise Results
-```{r}
-pairwise_results <- pairwise.wilcox.test(data$Bacterial_Killing_Percentage,
-                interaction(data$Species, data$Sex),
-                p.adjust.method = "bonferroni")
-  print(pairwise_results)
-```
-
-# Pairwise Results with Test Statistic
-```{r}
-# Load necessary library
-library(dplyr)
-
-# Define the pairwise combinations of Species
-pairs <- combn(levels(data$Species), 2, simplify = FALSE)
-
-# Initialize lists to store results
-test_stats <- list()
-p_values <- list()
-
-# Loop through each pair and perform the Wilcoxon rank-sum test
-for (pair in pairs) {
-  species1 <- pair[1]
-  species2 <- pair[2]
-  subset_data <- data %>% filter(Species %in% c(species1, species2))
-  
-  test_result <- wilcox.test(Bacterial_Killing_Percentage ~ Species, data = subset_data)
-  
-  test_stats[[paste(species1, species2, sep = " vs ")]] <- test_result$statistic
-  p_values[[paste(species1, species2, sep = " vs ")]] <- test_result$p.value
-}
-
-# Convert lists to data frames
-test_stats_df <- as.data.frame(do.call(rbind, test_stats), stringsAsFactors = FALSE)
-p_values_df <- as.data.frame(do.call(rbind, p_values), stringsAsFactors = FALSE)
-
-# Apply Bonferroni correction
-adjusted_p_values <- p.adjust(unlist(p_values_df), method = "bonferroni")
-
-# Combine results into a single data frame
-results_df <- data.frame(
-  Comparison = rownames(test_stats_df),
-  Test_Statistic = unlist(test_stats_df),
-  P_Value = unlist(p_values_df),
-  Adjusted_P_Value = adjusted_p_values
-)
-
-# Print the results
-print(results_df)
 ```
 
 # Import Growth Curve Data
