@@ -1,0 +1,1 @@
+Here you can find relevant files and scripts for the paper entitled "Cardueline finches vary in constitutive innate immunity against a harmful strain of avian Salmonella" by Lindsey Biehler, Tricia A. Van Laar, and Joel W. G. Slade which is currently in revision with the journal Integrative and Comparative Biology. 
