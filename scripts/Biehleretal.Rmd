@@ -213,6 +213,10 @@ growthcurve <- ggplot() +
 
 print(growthcurve)
 ```
+# print growth curve info
+```{r}
+print(average_data)
+```
 
 # export tiff with 300dpi
 ```{r warning=FALSE}
