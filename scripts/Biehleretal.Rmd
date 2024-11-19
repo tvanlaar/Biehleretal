@@ -11,6 +11,7 @@ library(ggplot2)
 library(dplyr)
 library(betareg)
 library(emmeans)
+library(MuMIn)
 ```
 
 # Import CSV
@@ -20,8 +21,6 @@ data <- read.csv("../datafiles/BiehlerDataBKA.csv", header = TRUE, sep = ",")
 # Convert 'Sex', 'Month', 'Year', and 'Species' to factors
 data$Sex <- factor(data$Sex)
 data$Species <- factor(data$Species)
-data$Year <- factor(data$Year)
-data$Month <- factor(data$Month)
 ```
 
 # Mean and Standard Devation for BKA
@@ -63,6 +62,7 @@ beta_bka_species <- betareg(Bacterial_Killing_Proportion ~ Species, data = data)
 # View the summary of the model
 summary(beta_bka_species)
 ```
+
 # Post Hoc Comparison
 ```{r}
 # Obtain estimated marginal means for Species from the beta regression model
@@ -84,21 +84,13 @@ pairwise_results_df
 # Model Testing
 ```{r}
 # Fit a model with main effects only
-main_effects_model <- betareg(Bacterial_Killing_Proportion ~ Species + Sex + Year + Season, data = data)
-model_A <- betareg(Bacterial_Killing_Proportion ~ Species + Season, data = data)
-model_B <- betareg(Bacterial_Killing_Proportion ~ Species + Year, data = data)
-model_C <- betareg(Bacterial_Killing_Proportion ~ Species + Sex * Season + Year, data = data)
-model_D <- betareg(Bacterial_Killing_Proportion ~ Species + Season + Year, data = data)
-model_E <- betareg(Bacterial_Killing_Proportion ~ Species, data = data)
-model_F <- betareg(Bacterial_Killing_Proportion ~ Species * Sex + Year, data = data)
-model_G <- betareg(Bacterial_Killing_Proportion ~ Species * Sex + Season, data = data)
-model_H <- betareg(Bacterial_Killing_Proportion ~ Species + Sex * Season, data = data)
-model_I <- betareg(Bacterial_Killing_Proportion ~ Species + Sex * Year, data = data)
-model_J <- betareg(Bacterial_Killing_Proportion ~ Sex, data = data)
-model_K <- betareg(Bacterial_Killing_Proportion ~ Year, data = data)
-model_L <- betareg(Bacterial_Killing_Proportion ~ Season, data = data)
+main_effects_model <- betareg(Bacterial_Killing_Proportion ~ Species + Sex, data = data)
+model_A <- betareg(Bacterial_Killing_Proportion ~ Species, data = data)
+model_B <- betareg(Bacterial_Killing_Proportion ~ Sex, data = data)
+model_C <- betareg(Bacterial_Killing_Proportion ~ Species * Sex, data = data)
+
 # Example for comparing models using AIC
-AIC(main_effects_model, model_A, model_B, model_C, model_D, model_E, model_F, model_G, model_H, model_I, model_J, model_K, model_L)
+AIC(main_effects_model, model_A, model_B, model_C)
 ```
 
 # Summarize AIC models
@@ -107,15 +99,6 @@ summary(main_effects_model)
 summary(model_A)
 summary(model_B)
 summary(model_C)
-summary(model_D)
-summary(model_E)
-summary(model_F)
-summary(model_G)
-summary(model_H)
-summary(model_I)
-summary(model_J)
-summary(model_K)
-summary(model_L)
 ```
 
 # Boxplot of BKA
